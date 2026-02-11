@@ -38,7 +38,7 @@ AS
         base_query
         AS
         (
-            -- Step 1. Base Query: Retrieves core columns from tables
+            -- Step 1. Base Query: Retrieves core columns from fact_sales and dim_customers
             SELECT s.order_number,
                 s.product_key,
                 s.order_date,
@@ -52,6 +52,7 @@ AS
                 LEFT JOIN gold.dim_customers AS c
                 ON s.customer_key = c.customer_key
             WHERE s.order_date IS NOT NULL
+            -- only consider valid sales dates
         )
 ,
         customer_aggregation
@@ -74,10 +75,12 @@ AS
             customer_name,
             age
         )
+    -- Step 3. Combines all customer results into one output    
     SELECT customer_key,
         customer_number,
         customer_name,
         age,
+        -- Segments customers into categories (VIP, Regular, New) and age groups
         CASE WHEN age < 20 THEN 'Under 20'
             WHEN age BETWEEN 20 AND 29 THEN '20-29'
             WHEN age BETWEEN 30 AND 39 THEN '30-39'
@@ -89,12 +92,14 @@ AS
             ELSE 'New'
         END AS customer_segment,
         last_order_date,
-        DATEDIFF(MONTH, last_order_date, GETDATE()) AS recency_months, -- recency (months since last order)
+        DATEDIFF(MONTH, last_order_date, GETDATE()) AS recency_in_months, -- recency (months since last order)
         total_orders,
         total_sales,
         total_quantity,
         total_products,
         lifespan,
+
+        -- Calculates valuable KPIs
         -- Computes Average Order Value (AOV = Total Sales / Total Nr. of Orders)
         CASE WHEN total_orders = 0 THEN 0
             ELSE ROUND(total_sales / total_orders, 2)
